@@ -18,7 +18,7 @@
  * Struct representing one position/control measurement.
  */
 struct control_s {
-	
+
 	double velocity;	// Velocity [m/s]
 	double yawrate;		// Yaw rate [rad/s]
 };
@@ -27,7 +27,7 @@ struct control_s {
  * Struct representing one ground truth position.
  */
 struct ground_truth {
-	
+
 	double x;		// Global vehicle x position [m]
 	double y;		// Global vehicle y position
 	double theta;	// Global vehicle yaw [rad]
@@ -37,10 +37,13 @@ struct ground_truth {
  * Struct representing one landmark observation measurement.
  */
 struct LandmarkObs {
-	
+
 	int id;				// Id of matching landmark in the map.
 	double x;			// Local (vehicle coordinates) x position of landmark observation [m]
 	double y;			// Local (vehicle coordinates) y position of landmark observation [m]
+	bool operator < (const LandmarkObs& other) const {
+		return (sqrt(x * x + y * y) < sqrt(other.x * other.x + other.y * other.y));
+	}
 };
 
 /*
@@ -51,6 +54,21 @@ struct LandmarkObs {
  */
 inline double dist(double x1, double y1, double x2, double y2) {
 	return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+}
+
+inline double bivariate_gausian(double center[], double point[], double sigmas[]) {
+	double rho   = 0; // correlation between x and y;
+	double x_0   = center[0];
+	double y_0   = center[1];
+	double x     = point[0];
+	double y     = point[1];
+	double sig_x = sigmas[0];
+	double sig_y = sigmas[1];
+	double scaler_term = 1.0 / (2 * M_PI * sig_x * sig_y * sqrt(1 - rho * rho));
+	double x_term = (x - x_0) * (x - x_0) / (sig_x * sig_x);
+	double y_term = (y - y_0) * (y - y_0) / (sig_y * sig_y);
+	double correlation_term = 2 * rho * (x - x_0) * (y - y_0) / (sig_x * sig_y);
+	return scaler_term * exp(-1.0 / (2 * (1 - rho * rho)) * (x_term + y_term - correlation_term));
 }
 
 inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x, double pf_y, double pf_theta) {
@@ -77,7 +95,7 @@ inline bool read_map_data(std::string filename, Map& map) {
 	if (!in_file_map) {
 		return false;
 	}
-	
+
 	// Declare single line of map file:
 	std::string line_map;
 
@@ -141,7 +159,7 @@ inline bool read_control_data(std::string filename, std::vector<control_s>& posi
 		iss_pos >> velocity;
 		iss_pos >> yawrate;
 
-		
+
 		// Set values
 		meas.velocity = velocity;
 		meas.yawrate = yawrate;
@@ -177,7 +195,7 @@ inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
 		double x, y, azimuth;
 
 		// Declare single ground truth:
-		ground_truth single_gt; 
+		ground_truth single_gt;
 
 		//read data from line to values:
 		iss_pos >> x;
